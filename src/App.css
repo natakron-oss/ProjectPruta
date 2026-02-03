@@ -5,6 +5,7 @@
   height: 100vh;
   overflow: hidden;
   position: relative;
+  font: 1em sans-serif;
 }
 
 .sidebar-left-header {
