@@ -10,7 +10,9 @@ const fallbackData = [
     { WIFI_ID: 'รอโหลด...', LOCATION: '-', ISP: '-', STATUS: 'ปกติ', LAT: 12.70, LON: 100.90, SPEED: '-', DEVICE_COUNT: 0 },
 ];
 
-const WifiSpot: React.FC = () => {
+type Props = { selectedId?: string };
+
+const WifiSpot: React.FC<Props> = ({ selectedId }) => {
     const [points, setPoints] = useState<any[]>(fallbackData);
     const [selected, setSelected] = useState<any>(fallbackData[0]);
     const [loading, setLoading] = useState(false);
@@ -26,7 +28,12 @@ const WifiSpot: React.FC = () => {
 
                 if (validData.length > 0) {
                     setPoints(validData);
-                    setSelected(validData[0]);
+                    if (selectedId) {
+                        const found = validData.find((d: any) => d.WIFI_ID === selectedId);
+                        setSelected(found || validData[0]);
+                    } else {
+                        setSelected(validData[0]);
+                    }
                 } else {
                     console.warn('ไม่พบข้อมูล หรือชื่อหัวตารางไม่ตรง (ต้องเป็น WIFI_ID, LOCATION...)');
                 }

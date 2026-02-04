@@ -10,7 +10,9 @@ const fallbackData = [
     { HYDRANT_ID: 'รอโหลด...', LOCATION: '-', PRESSURE: '-', STATUS: 'ปกติ', LAT: 12.70, LON: 100.90, LAST_CHECK: '-' },
 ];
 
-const FireHydrant: React.FC = () => {
+type Props = { selectedId?: string };
+
+const FireHydrant: React.FC<Props> = ({ selectedId }) => {
     const [points, setPoints] = useState<any[]>(fallbackData);
     const [selected, setSelected] = useState<any>(fallbackData[0]);
     const [loading, setLoading] = useState(false);
@@ -26,7 +28,12 @@ const FireHydrant: React.FC = () => {
 
                 if (validData.length > 0) {
                     setPoints(validData);
-                    setSelected(validData[0]);
+                    if (selectedId) {
+                        const found = validData.find((d: any) => d.HYDRANT_ID === selectedId);
+                        setSelected(found || validData[0]);
+                    } else {
+                        setSelected(validData[0]);
+                    }
                 } else {
                     console.warn('โหลดได้ แต่ไม่พบข้อมูล หรือหัวตารางไม่ตรง (ต้องเป็น HYDRANT_ID, LOCATION...)');
                 }

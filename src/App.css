@@ -1,10 +1,20 @@
-/* --- 1. ปรับ Container หลักให้เรียงแนวนอน --- */
+/* ===================== Layout หลัก ===================== */
 .app-container {
-  display: flex; /* หัวใจสำคัญ: เรียงซ้ายไปขวา */
+  display: flex;
   width: 100%;
   height: 100vh;
   overflow: hidden;
   position: relative;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* ===================== Sidebar ซ้าย ===================== */
+.shared-sidebar {
+  width: 240px;
+  background: #0f172a;
+  color: white;
+  padding: 20px;
+  flex-shrink: 0;
 }
 
 .sidebar-left-header {
@@ -26,17 +36,6 @@
   margin-right: 12px;
 }
 
-.header-text h3 {
-  font-size: 16px;
-  font-weight: 500;
-  margin: 0;
-}
-.header-text p {
-  font-size: 14px;
-  color: #94a3b8;
-  margin: 0;
-}
-
 .menu-list {
   display: flex;
   flex-direction: column;
@@ -46,100 +45,59 @@
 .menu-item {
   display: flex;
   align-items: center;
+  gap: 10px;
   padding: 12px 16px;
-  text-decoration: none;
   color: #cbd5e1;
   border-radius: 8px;
+  cursor: pointer;
   transition: all 0.2s;
-  font-size: 15px;
-  gap: 12px;
 }
 
 .menu-item:hover {
-  background-color: #1e293b;
+  background: #1e293b;
   color: white;
 }
 
 .menu-item.active {
-  background-color: #3b82f6;
+  background: #2563eb;
   color: white;
   font-weight: 500;
 }
 
-/* --- 3. ปรับ Map Container ให้เต็มพื้นที่ที่เหลือ --- */
+/* ===================== Map ===================== */
 .map-container {
-  flex: 1; /* ขยายให้เต็มพื้นที่ที่เหลือจาก Sidebar ซ้าย */
-  position: relative; /* เพื่อให้ Sidebar ขวา (absolute) อ้างอิงตำแหน่งได้ */
-  /* ลบ inset: 0 ออก เพราะเราใช้ Flex แล้ว */
+  flex: 1;
+  position: relative;
+  background-image: url("https://images.pexels.com/photos/213159/pexels-photo-213159.jpeg?auto=compress&cs=tinysrgb&w=1600");
   background-size: cover;
   background-position: center;
-  background-image: url("https://images.pexels.com/photos/213159/pexels-photo-213159.jpeg?auto=compress&cs=tinysrgb&w=1600");
 }
 
-/* --- 4. Sidebar เดิม (ฝั่งขวา) ไม่ต้องแก้เยอะ --- */
+/* ===================== Sidebar ขวา (Overview เดิม) ===================== */
 .sidebar {
-  /* คงค่าเดิมไว้ */
   position: absolute;
   top: 1rem;
-  right: 1rem; /* ยึดขวาเหมือนเดิม */
+  right: 1rem;
   bottom: 1rem;
   width: 100%;
   max-width: 28rem;
   background-color: white;
   border-radius: 1rem;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
   display: flex;
   flex-direction: column;
   z-index: 50;
-  
 }
 
-/*Sidebar ขวา */
 .sidebar-header {
   position: sticky;
   top: 0;
-  background-color: white;
-  border-top-left-radius: 1rem;
-  border-top-right-radius: 1rem;
+  background: white;
   padding: 1rem;
   border-bottom: 1px solid #f3f4f6;
-  z-index: 10;
+  font-weight: 600;
 }
 
-/* ช่องค้นหา */
-.search-container {
-  position: relative;
-}
-
-.search-icon {
-  position: absolute;
-  left: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #9ca3af;
-  width: 1.25rem;
-  height: 1.25rem;
-}
-
-.search-input {
-  width: 100%;
-  padding-left: 2.75rem;
-  padding-right: 1rem;
-  padding-top: 0.75rem;
-  padding-bottom: 0.75rem;
-  background-color: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.75rem;
-  outline: none;
-  transition: all 0.2s;
-}
-
-.search-input:focus {
-  box-shadow: 0 0 0 2px #3b82f6;
-  border-color: transparent;
-}
-
-/* เนื้อหาและการ์ด */
 .sidebar-content {
   flex: 1;
   overflow-y: auto;
@@ -149,84 +107,141 @@
   gap: 1rem;
 }
 
-.section-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin-bottom: 0.75rem;
+/* Compact lists */
+.list-block {
+  background: #ffffff;
+  border: 1px solid #e6eef8;
+  border-radius: 8px;
+  padding: 10px;
 }
 
-.places-list, .hotels-list {
+.list-block h3 {
+  margin: 6px 0 10px 0;
+  font-size: 0.95rem;
+}
+
+.list-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #f8fbff;
+  border: 1px solid #dbeeff;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.list-card:hover {
+  box-shadow: 0 10px 18px rgba(13,42,84,0.06);
+}
+
+/* ===================== Device Page ใหม่ ===================== */
+.device-page {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-}
-
-/* ดีไซน์การ์ด */
-.place-card, .hotel-card {
-  background-color: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.75rem;
+  background: #f8fafc;
   overflow: hidden;
-  cursor: pointer;
-  transition: box-shadow 0.2s;
 }
 
-.place-card:hover, .hotel-card:hover {
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
-
-/* รูปภาพไล่สี (Gradients) */
-.card-image-container {
-  height: 10rem;
-  position: relative;
-  background: linear-gradient(to bottom right, #60a5fa, #2563eb); /* สีฟ้า */
-}
-
-/* เพิ่มลูกเล่นสีให้การ์ดใบอื่นๆ ไม่ซ้ำกัน */
-.place-card:nth-of-type(2) .card-image-container {
-  background: linear-gradient(to bottom right, #34d399, #059669); /* สีเขียว */
-}
-
-.hotel-card:nth-of-type(1) .card-image-container {
-  background: linear-gradient(to bottom right, #a78bfa, #7c3aed); /* สีม่วง */
-}
-
-.hotel-card:nth-of-type(2) .card-image-container {
-  background: linear-gradient(to bottom right, #fb923c, #ea580c); /* สีส้ม */
-}
-
-.image-placeholder {
-  position: absolute;
-  inset: 0;
+/* Tabs */
+.device-tabs {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  gap: 12px;
+  padding: 14px 20px;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.device-tabs button {
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.device-tabs button:hover {
+  background: #eef2ff;
+}
+
+.device-tabs button.active {
+  background: #2563eb;
   color: white;
-  font-size: 0.875rem;
+  border-color: #2563eb;
   font-weight: 500;
 }
 
-.card-content {
-  padding: 1rem;
+/* Content */
+.device-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
 }
 
-.card-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #111827;
-  margin-bottom: 0.25rem;
-}
-
-.location-info {
+/* ใช้ใน StreetLight / Wifi / Hydrant */
+.device-section {
   display: flex;
-  align-items: center;
-  font-size: 0.875rem;
-  color: #4b5563;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.map-pin-icon {
-  width: 1rem;
-  height: 1rem;
-  margin-right: 0.25rem;
+.device-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.device-header h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.device-stats {
+  display: flex;
+  gap: 10px;
+}
+
+.device-stat {
+  background: white;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  font-size: 14px;
+  color: #334155;
+}
+
+/* ตาราง */
+.device-table {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+
+.device-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.device-table th {
+  background: #f1f5f9;
+  padding: 12px;
+  text-align: left;
+  font-size: 13px;
+  color: #475569;
+}
+
+.device-table td {
+  padding: 12px;
+  border-top: 1px solid #f1f5f9;
+  font-size: 14px;
+}
+
+.device-table tr:hover {
+  background: #f8fafc;
 }

@@ -23,7 +23,9 @@ const fallbackData = [
   },
 ];
 
-const StreetLight: React.FC = () => {
+type Props = { selectedId?: string };
+
+const StreetLight: React.FC<Props> = ({ selectedId }) => {
   const [lights, setLights] = useState<any[]>(fallbackData);
   const [selected, setSelected] = useState<any>(fallbackData[0]);
   const [loading, setLoading] = useState(false);
@@ -37,7 +39,13 @@ const StreetLight: React.FC = () => {
         const validData = results.data.filter((item: any) => item.ASSET_ID && item.ASSET_ID.trim() !== '');
         if (validData.length > 0) {
           setLights(validData);
-          setSelected(validData[0]);
+          // If a selectedId was passed, try to find and select that item
+          if (selectedId) {
+            const found = validData.find((d: any) => d.ASSET_ID === selectedId);
+            setSelected(found || validData[0]);
+          } else {
+            setSelected(validData[0]);
+          }
         }
         setLoading(false);
       },
