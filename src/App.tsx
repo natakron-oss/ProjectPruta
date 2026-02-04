@@ -6,6 +6,7 @@ import Complaint from './Complaint';
 import StreetLight from './StreetLight';
 import WifiSpot from './WifiSpot';
 import FireHydrant from './FireHydrant';
+import CityMap from './CityMap';
 
 function App() {
   const [page, setPage] = useState('overview');
@@ -66,6 +67,109 @@ function App() {
 
   useEffect(() => { fetchSheets(); }, []);
 
+  // ===== สุ่มพิกัดรอบๆ พลูตาหลวง =====
+  const generateRandomCoords = (centerLat: number, centerLng: number, radiusKm: number = 2) => {
+    // สุ่มพิกัดในรัศมี radiusKm กิโลเมตร
+    const radiusInDegrees = radiusKm / 111; // 1 degree ≈ 111 km
+    const u = Math.random();
+    const v = Math.random();
+    const w = radiusInDegrees * Math.sqrt(u);
+    const t = 2 * Math.PI * v;
+    const x = w * Math.cos(t);
+    const y = w * Math.sin(t);
+    
+    return {
+      lat: centerLat + y,
+      lng: centerLng + x / Math.cos(centerLat * Math.PI / 180)
+    };
+  };
+
+  // ===== แปลงข้อมูลสำหรับแผนที่ =====
+  const getMapDevices = () => {
+    const devices: any[] = [];
+    const CENTER_LAT = 12.7011; // พลูตาหลวง
+    const CENTER_LNG = 100.9674;
+
+    // แปลงไฟส่องสว่าง
+    streetLights.forEach((item) => {
+      let lat = item.LAT ? parseFloat(item.LAT) : null;
+      let lng = item.LNG ? parseFloat(item.LNG) : null;
+      
+      // ถ้าไม่มีพิกัด ให้สุ่มพิกัดรอบๆ พลูตาหลวง
+      if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+        const coords = generateRandomCoords(CENTER_LAT, CENTER_LNG, 1.5);
+        lat = coords.lat;
+        lng = coords.lng;
+      }
+      
+      devices.push({
+        id: item.ASSET_ID,
+        name: item.LOCATION || `โคมไฟ ${item.ASSET_ID}`,
+        type: 'streetlight',
+        lat: lat,
+        lng: lng,
+        status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : 
+                item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing',
+        department: 'เทศบาลตำบลพลูตาหลวง',
+        description: item.LAMP_TYPE || item.BULB_TYPE || ''
+      });
+    });
+
+    // แปลงไวไฟ
+    wifiSpots.forEach((item) => {
+      let lat = item.LAT ? parseFloat(item.LAT) : null;
+      let lng = item.LNG ? parseFloat(item.LNG) : null;
+      
+      // ถ้าไม่มีพิกัด ให้สุ่มพิกัดรอบๆ พลูตาหลวง
+      if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+        const coords = generateRandomCoords(CENTER_LAT, CENTER_LNG, 2);
+        lat = coords.lat;
+        lng = coords.lng;
+      }
+      
+      devices.push({
+        id: item.WIFI_ID,
+        name: item.LOCATION || `WiFi ${item.WIFI_ID}`,
+        type: 'wifi',
+        lat: lat,
+        lng: lng,
+        status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : 
+                item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing',
+        department: 'เทศบาลตำบลพลูตาหลวง',
+        description: item.ISP || ''
+      });
+    });
+
+    // แปลงหัวดับเพลิง/ประปา
+    hydrants.forEach((item) => {
+      let lat = item.LAT ? parseFloat(item.LAT) : null;
+      let lng = item.LNG ? parseFloat(item.LNG) : null;
+      
+      // ถ้าไม่มีพิกัด ให้สุ่มพิกัดรอบๆ พลูตาหลวง
+      if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+        const coords = generateRandomCoords(CENTER_LAT, CENTER_LNG, 2);
+        lat = coords.lat;
+        lng = coords.lng;
+      }
+      
+      devices.push({
+        id: item.HYDRANT_ID,
+        name: item.LOCATION || `ประปา ${item.HYDRANT_ID}`,
+        type: 'hydrant',
+        lat: lat,
+        lng: lng,
+        status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : 
+                item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing',
+        department: 'เทศบาลตำบลพลูตาหลวง',
+        description: item.PRESSURE ? `แรงดัน: ${item.PRESSURE}` : ''
+      });
+    });
+
+    console.log('Map Devices:', devices); // Debug: ดูข้อมูลที่ส่งไปแผนที่
+    console.log('Total devices:', devices.length);
+    return devices;
+  };
+
   // ===== หน้าร้องเรียนเดิม =====
   if (page === 'complaint') {
     return <Complaint onBack={() => setPage('overview')} />;
@@ -105,7 +209,9 @@ function App() {
       {/* ===== Overview เดิม (ใช้ข้อมูลจริง) ===== */}
       {page === 'overview' && (
         <>
-          <div className="map-container"></div>
+          <div className="map-container">
+            <CityMap devices={getMapDevices()} loading={loadingSheets} />
+          </div>
 
           <aside className="sidebar">
             <div className="sidebar-header">
