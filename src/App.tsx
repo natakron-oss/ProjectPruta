@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+// @ts-ignore
 import Papa from 'papaparse';
 import './App.css';
-import { Home, MessageCircle, MapPin, Calendar } from 'lucide-react';
-import Complaint from './Complaint';
+import { Home, MapPin, List, GripHorizontal } from 'lucide-react';
 import StreetLight from './StreetLight';
 import WifiSpot from './WifiSpot';
 import FireHydrant from './FireHydrant';
@@ -12,307 +12,270 @@ function App() {
   const [page, setPage] = useState('overview');
   const [deviceTab, setDeviceTab] = useState<'streetlight' | 'wifi' | 'hydrant'>('streetlight');
 
-  // ===== State เดิม =====
+  // ===== 1. ระบบ Drag Panel (ปรับความสูง) =====
+  const [panelHeight, setPanelHeight] = useState(400); 
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartY = useRef(0);
+  const dragStartHeight = useRef(0);
+
+  // ===== 2. Data States =====
   const [streetLights, setStreetLights] = useState<any[]>([]);
   const [wifiSpots, setWifiSpots] = useState<any[]>([]);
   const [hydrants, setHydrants] = useState<any[]>([]);
   const [loadingSheets, setLoadingSheets] = useState(false);
+  
+  // Selection States
   const [selectedStreetId, setSelectedStreetId] = useState<string | null>(null);
   const [selectedWifiId, setSelectedWifiId] = useState<string | null>(null);
   const [selectedHydrantId, setSelectedHydrantId] = useState<string | null>(null);
 
-  // ===== ลิ้ง Google Sheet ของคุณ =====
-  const SHEET_STREETLIGHT =
-    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQv7p9ib0xXet8Alyik_Fi9CdBVvZO8xz73K4k0wEoNqpwIWAKFGIfbk0IkE8knnp-LXvNA6OceINr1/pub?gid=0&single=true&output=csv';
+  // ===== 3. Google Sheet Links =====
+  const SHEET_STREETLIGHT = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQv7p9ib0xXet8Alyik_Fi9CdBVvZO8xz73K4k0wEoNqpwIWAKFGIfbk0IkE8knnp-LXvNA6OceINr1/pub?gid=0&single=true&output=csv';
+  const SHEET_WIFI = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQv7p9ib0xXet8Alyik_Fi9CdBVvZO8xz73K4k0wEoNqpwIWAKFGIfbk0IkE8knnp-LXvNA6OceINr1/pub?gid=123712203&single=true&output=csv';
+  const SHEET_HYDRANT = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQv7p9ib0xXet8Alyik_Fi9CdBVvZO8xz73K4k0wEoNqpwIWAKFGIfbk0IkE8knnp-LXvNA6OceINr1/pub?gid=872918807&single=true&output=csv';
 
-  const SHEET_WIFI =
-    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQv7p9ib0xXet8Alyik_Fi9CdBVvZO8xz73K4k0wEoNqpwIWAKFGIfbk0IkE8knnp-LXvNA6OceINr1/pub?gid=123712203&single=true&output=csv';
-
-  const SHEET_HYDRANT =
-    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQv7p9ib0xXet8Alyik_Fi9CdBVvZO8xz73K4k0wEoNqpwIWAKFGIfbk0IkE8knnp-LXvNA6OceINr1/pub?gid=872918807&single=true&output=csv';
-
-  // ===== โหลดข้อมูลจริง =====
+  // ===== 4. Fetch Data =====
   const fetchSheets = () => {
     setLoadingSheets(true);
-
-    Papa.parse(SHEET_STREETLIGHT, {
-      download: true,
-      header: true,
-      complete: (res) => {
-        const data = (res.data || []).filter((r: any) => r.ASSET_ID);
-        setStreetLights(data);
-      }
-    });
-
-    Papa.parse(SHEET_WIFI, {
-      download: true,
-      header: true,
-      complete: (res) => {
-        const data = (res.data || []).filter((r: any) => r.WIFI_ID);
-        setWifiSpots(data);
-      }
-    });
-
-    Papa.parse(SHEET_HYDRANT, {
-      download: true,
-      header: true,
-      complete: (res) => {
-        const data = (res.data || []).filter((r: any) => r.HYDRANT_ID);
-        setHydrants(data);
-      }
-    });
-
+    Papa.parse(SHEET_STREETLIGHT, { download: true, header: true, complete: (res: any) => { setStreetLights((res.data || []).filter((r: any) => r.ASSET_ID)); } });
+    Papa.parse(SHEET_WIFI, { download: true, header: true, complete: (res: any) => { setWifiSpots((res.data || []).filter((r: any) => r.WIFI_ID)); } });
+    Papa.parse(SHEET_HYDRANT, { download: true, header: true, complete: (res: any) => { setHydrants((res.data || []).filter((r: any) => r.HYDRANT_ID)); } });
     setTimeout(() => setLoadingSheets(false), 800);
   };
-
   useEffect(() => { fetchSheets(); }, []);
 
-  // ===== แปลงข้อมูลสำหรับแผนที่ =====
-  const getMapDevices = () => {
-    const devices: any[] = [];
-
-    // แปลงไฟส่องสว่าง
-    streetLights.forEach((item) => {
-      let lat = item.LAT ? parseFloat(item.LAT) : null;
-      let lng = (item.LNG || item.LON) ? parseFloat(item.LNG || item.LON) : null;
+  // ===== 5. Logic การลาก (Drag Logic) =====
+  useEffect(() => {
+    const handleMouseMove = (e: globalThis.MouseEvent) => {
+      if (!isDragging) return;
       
-      // ข้ามรายการที่ไม่มีพิกัด
-      if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
-        return;
+      const deltaY = dragStartY.current - e.clientY;
+      const newHeight = dragStartHeight.current + deltaY;
+      const maxHeight = window.innerHeight * 0.9; 
+      
+      if (newHeight >= 60 && newHeight <= maxHeight) {
+        setPanelHeight(newHeight);
       }
-      
-      devices.push({
-        id: item.ASSET_ID,
-        name: item.LOCATION || `โคมไฟ ${item.ASSET_ID}`,
-        type: 'streetlight',
-        lat: lat,
-        lng: lng,
-        status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : 
-                item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing',
-        department: 'เทศบาลตำบลพลูตาหลวง',
-        description: item.LAMP_TYPE || item.BULB_TYPE || ''
-      });
-    });
+    };
 
-    // แปลงไวไฟ
-    wifiSpots.forEach((item) => {
-      let lat = item.LAT ? parseFloat(item.LAT) : null;
-      let lng = (item.LNG || item.LON) ? parseFloat(item.LNG || item.LON) : null;
-      
-      // ข้ามรายการที่ไม่มีพิกัด
-      if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
-        return;
-      }
-      
-      devices.push({
-        id: item.WIFI_ID,
-        name: item.LOCATION || `WiFi ${item.WIFI_ID}`,
-        type: 'wifi',
-        lat: lat,
-        lng: lng,
-        status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : 
-                item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing',
-        department: 'เทศบาลตำบลพลูตาหลวง',
-        description: item.ISP || ''
-      });
-    });
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      document.body.style.cursor = 'default';
+      document.body.style.userSelect = 'auto';
+    };
 
-    // แปลงหัวดับเพลิง/ประปา
-    hydrants.forEach((item) => {
-      let lat = item.LAT ? parseFloat(item.LAT) : null;
-      let lng = (item.LNG || item.LON) ? parseFloat(item.LNG || item.LON) : null;
-      
-      // ข้ามรายการที่ไม่มีพิกัด
-      if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
-        return;
-      }
-      
-      devices.push({
-        id: item.HYDRANT_ID,
-        name: item.LOCATION || `ประปา ${item.HYDRANT_ID}`,
-        type: 'hydrant',
-        lat: lat,
-        lng: lng,
-        status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : 
-                item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing',
-        department: 'เทศบาลตำบลพลูตาหลวง',
-        description: item.PRESSURE ? `แรงดัน: ${item.PRESSURE}` : ''
-      });
-    });
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
 
-    console.log('Map Devices:', devices); // Debug: ดูข้อมูลที่ส่งไปแผนที่
-    console.log('Total devices:', devices.length);
-    return devices;
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
+  const startDragging = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    dragStartY.current = e.clientY;
+    dragStartHeight.current = panelHeight;
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
   };
 
-  // ===== หน้าร้องเรียนเดิม =====
-  if (page === 'complaint') {
-    return <Complaint onBack={() => setPage('overview')} />;
-  }
+  // ===== 6. Helper: สร้างพิกัดสุ่ม =====
+  const generateRandomCoords = (centerLat: number, centerLng: number, radiusKm: number = 2) => {
+    const radiusInDegrees = radiusKm / 111;
+    const u = Math.random(); const v = Math.random();
+    const w = radiusInDegrees * Math.sqrt(u); const t = 2 * Math.PI * v;
+    const x = w * Math.cos(t); const y = w * Math.sin(t);
+    return { lat: centerLat + y, lng: centerLng + x / Math.cos(centerLat * Math.PI / 180) };
+  };
+
+  // ===== 7. useMemo: ล็อคข้อมูลแผนที่ =====
+  const mapDevices = useMemo(() => {
+    const devices: any[] = [];
+    const CENTER_LAT = 12.7011; const CENTER_LNG = 100.9674;
+
+    streetLights.forEach((item) => {
+      let lat = parseFloat(item.LAT); let lng = parseFloat(item.LNG);
+      if (!lat || !lng || isNaN(lat)) { const c = generateRandomCoords(CENTER_LAT, CENTER_LNG, 1.5); lat = c.lat; lng = c.lng; }
+      devices.push({ id: item.ASSET_ID, name: item.LOCATION || `โคมไฟ`, type: 'streetlight', lat, lng, status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing', department: 'เทศบาลตำบลพลูตาหลวง', description: item.LAMP_TYPE || '' });
+    });
+
+    wifiSpots.forEach((item) => {
+      let lat = parseFloat(item.LAT); let lng = parseFloat(item.LNG);
+      if (!lat || !lng || isNaN(lat)) { const c = generateRandomCoords(CENTER_LAT, CENTER_LNG, 2); lat = c.lat; lng = c.lng; }
+      devices.push({ id: item.WIFI_ID, name: item.LOCATION || `WiFi`, type: 'wifi', lat, lng, status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing', department: 'เทศบาลตำบลพลูตาหลวง', description: item.ISP || '' });
+    });
+
+    hydrants.forEach((item) => {
+      let lat = parseFloat(item.LAT); let lng = parseFloat(item.LNG);
+      if (!lat || !lng || isNaN(lat)) { const c = generateRandomCoords(CENTER_LAT, CENTER_LNG, 2); lat = c.lat; lng = c.lng; }
+      devices.push({ id: item.HYDRANT_ID, name: item.LOCATION || `ประปา`, type: 'hydrant', lat, lng, status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing', department: 'เทศบาลตำบลพลูตาหลวง', description: item.PRESSURE || '' });
+    });
+
+    return devices;
+  }, [streetLights, wifiSpots, hydrants]); 
 
   return (
-    <div className="app-container">
+    <div className="app-container" style={{ display: 'flex', height: '100vh', width: '100%', overflow: 'hidden' }}>
 
-      {/* Sidebar ซ้าย */}
-      <aside className="shared-sidebar">
+      {/* --- 1. Sidebar ซ้าย (เหลือแค่ 2 เมนู) --- */}
+      <aside className="shared-sidebar" style={{ width: '250px', flexShrink: 0, zIndex: 20 }}>
         <div className="sidebar-left-header">
           <div className="logo-icon"><Home size={20} color="white" /></div>
-          <div>
-            <h3>เทศบาลตำบล</h3>
-            <p>พลูตาหลวง</p>
-          </div>
+          <div><h3>เทศบาลเมือง</h3><p>พลูตาหลวง</p></div>
         </div>
-
         <div className="menu-list">
-          <div className={`menu-item ${page==='overview'?'active':''}`}
-            onClick={()=>setPage('overview')}>
-            <Home size={18}/> ภาพรวม
-          </div>
-
-          <div className={`menu-item ${page==='complaint'?'active':''}`}
-            onClick={()=>setPage('complaint')}>
-            <MessageCircle size={18}/> ระบบร้องเรียน
-          </div>
-
-          <div className={`menu-item ${page==='devices'?'active':''}`}
-            onClick={()=>setPage('devices')}>
-            <MapPin size={18}/> อุปกรณ์
-          </div>
+          <div className={`menu-item ${page==='overview'?'active':''}`} onClick={()=>setPage('overview')}><Home size={18}/> ภาพรวม</div>
+          <div className={`menu-item ${page==='devices'?'active':''}`} onClick={()=>setPage('devices')}><MapPin size={18}/> อุปกรณ์</div>
         </div>
       </aside>
 
-      {/* ===== Overview เดิม (ใช้ข้อมูลจริง) ===== */}
-      {page === 'overview' && (
-        <>
-          <div className="map-container">
-            <CityMap devices={getMapDevices()} loading={loadingSheets} />
-          </div>
-
-          <aside className="sidebar">
-            <div className="sidebar-header">
-              ข้อมูลอุปกรณ์
+      {/* --- 2. พื้นที่หลัก (ขวา) --- */}
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
+        
+        {/* กรณีหน้า Overview */}
+        {page === 'overview' && (
+          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+            
+            {/* A. แผนที่ */}
+            <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}>
+              <CityMap devices={mapDevices} loading={loadingSheets} />
             </div>
 
-            <div className="sidebar-content">
-              {/* สถิติอุปกรณ์บนแผนที่ */}
-              <div className="list-block" style={{background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', borderRadius: '8px', padding: '16px', marginBottom: '16px'}}>
-                <h3 style={{color: 'white', marginBottom: '12px'}}>📍 แผนที่ดิจิทัล</h3>
-                <div style={{fontSize: '0.9rem', opacity: 0.95}}>
-                  <p style={{margin: '4px 0'}}>แสดงอุปกรณ์: <strong>{getMapDevices().length}</strong> รายการ</p>
-                  <p style={{margin: '4px 0', fontSize: '0.85rem', opacity: 0.85}}>
-                    💡 ไฟ: {getMapDevices().filter(d => d.type === 'streetlight').length} | 
-                    📶 WiFi: {getMapDevices().filter(d => d.type === 'wifi').length} | 
-                    🚒 ประปา: {getMapDevices().filter(d => d.type === 'hydrant').length}
-                  </p>
+            {/* B. Floating Panel (ลากได้) */}
+            <div 
+              style={{
+                position: 'absolute',
+                bottom: 0,       
+                right: '20px',   
+                width: '380px',  
+                height: `${panelHeight}px`,
+                zIndex: 1000,
+                backgroundColor: 'white',
+                borderTopLeftRadius: '16px',
+                borderTopRightRadius: '16px',
+                boxShadow: '0 -4px 20px rgba(0,0,0,0.15)',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                transition: isDragging ? 'none' : 'height 0.2s cubic-bezier(0.25, 1, 0.5, 1)'
+              }}
+            >
+              {/* Header ของ Panel */}
+              <div 
+                onMouseDown={startDragging}
+                style={{
+                  minHeight: '54px',
+                  background: 'white',
+                  borderBottom: '1px solid #f1f5f9',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0 1rem',
+                  cursor: 'row-resize',
+                  userSelect: 'none',
+                  position: 'relative'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{ background: '#3b82f6', padding: '6px', borderRadius: '8px', color: 'white' }}>
+                    <List size={18} />
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: '#1e293b' }}>รายการอุปกรณ์</h3>
+                  </div>
+                </div>
+
+                <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', color: '#94a3b8', display: 'flex' }}>
+                  <GripHorizontal size={20} />
+                </div>
+
+                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                  {streetLights.length + wifiSpots.length + hydrants.length} จุด
                 </div>
               </div>
 
-              <div className="list-block">
-                <h3>ไฟ ({streetLights.length})</h3>
-                {streetLights.map((it,i)=>(
-                  <div key={i} className="list-card" onClick={() => { setSelectedStreetId(it.ASSET_ID || null); setPage('streetlight'); }}>
-                    <div className="card-left">
-                      <div style={{display:'flex', alignItems:'center', gap:8}}>
-                        <a className="card-id">{it.ASSET_ID}</a>
-                        {(it.LAMP_TYPE || it.BULB_TYPE) && (
-                          <span className="card-badge">{it.LAMP_TYPE || it.BULB_TYPE}</span>
-                        )}
+              {/* Content List */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', background: '#f8fafc', opacity: panelHeight < 100 ? 0 : 1 }}>
+                
+                {/* ไฟส่องสว่าง */}
+                <h4 style={{ fontSize: '0.85rem', color: '#64748b', margin: '0 0 0.5rem 0' }}>💡 ไฟส่องสว่าง ({streetLights.length})</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                  {streetLights.map((it,i)=>(
+                    <div key={`sl-${i}`} className="list-card" onClick={() => { setSelectedStreetId(it.ASSET_ID || null); setPage('streetlight'); }}>
+                      <div className="card-left">
+                        <div style={{fontWeight:600, fontSize:'0.9rem'}}>#{it.ASSET_ID}</div>
+                        <div className="card-sub">{it.LOCATION}</div>
                       </div>
-                      <div className="card-sub">{it.LOCATION}{it.MOO ? ` (หมู่ ${it.MOO})` : ''}</div>
-                    </div>
-                    <div className="card-right">
                       <div className={`status-pill ${it.STATUS ? it.STATUS.toLowerCase() : ''}`}>
-                        <span className={`status-dot ${it.STATUS ? it.STATUS.toLowerCase() : ''}`}></span>
-                        {it.STATUS || '-'}
+                         {it.STATUS || '-'}
                       </div>
-                      <div className="card-date"><Calendar size={12} /> {it.IMG_DATE || it.STATUSDATE || ''}</div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
 
-              <div className="list-block">
-                <h3>ไวไฟ ({wifiSpots.length})</h3>
-                {wifiSpots.map((it,i)=>(
-                  <div key={i} className="list-card" onClick={() => { setSelectedWifiId(it.WIFI_ID || null); setPage('wifi'); }}>
-                    <div className="card-left">
-                      <div style={{display:'flex', alignItems:'center', gap:8}}>
-                        <a className="card-id">{it.WIFI_ID}</a>
-                        {it.ISP && <span className="card-badge">{it.ISP}</span>}
+                {/* WiFi */}
+                <h4 style={{ fontSize: '0.85rem', color: '#64748b', margin: '0 0 0.5rem 0' }}>📶 Wi-Fi ({wifiSpots.length})</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                  {wifiSpots.map((it,i)=>(
+                    <div key={`wf-${i}`} className="list-card" onClick={() => { setSelectedWifiId(it.WIFI_ID || null); setPage('wifi'); }}>
+                       <div className="card-left">
+                        <div style={{fontWeight:600, fontSize:'0.9rem'}}>#{it.WIFI_ID}</div>
+                        <div className="card-sub">{it.LOCATION}</div>
                       </div>
-                      <div className="card-sub">{it.LOCATION}</div>
-                    </div>
-                    <div className="card-right">
                       <div className={`status-pill ${it.STATUS ? it.STATUS.toLowerCase() : ''}`}>
-                        <span className={`status-dot ${it.STATUS ? it.STATUS.toLowerCase() : ''}`}></span>
-                        {it.STATUS || '-'}
+                         {it.STATUS || '-'}
                       </div>
-                      <div className="card-date"><Calendar size={12} /> {it.SPEED || ''}</div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
 
-              <div className="list-block">
-                <h3>ประปา ({hydrants.length})</h3>
-                {hydrants.map((it,i)=>(
-                  <div key={i} className="list-card" onClick={() => { setSelectedHydrantId(it.HYDRANT_ID || null); setPage('firehydrant'); }}>
-                    <div className="card-left">
-                      <div style={{display:'flex', alignItems:'center', gap:8}}>
-                        <a className="card-id">{it.HYDRANT_ID}</a>
+                {/* ประปา */}
+                <h4 style={{ fontSize: '0.85rem', color: '#64748b', margin: '0 0 0.5rem 0' }}>🚒 ประปา/ดับเพลิง ({hydrants.length})</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                  {hydrants.map((it,i)=>(
+                    <div key={`hd-${i}`} className="list-card" onClick={() => { setSelectedHydrantId(it.HYDRANT_ID || null); setPage('firehydrant'); }}>
+                      <div className="card-left">
+                        <div style={{fontWeight:600, fontSize:'0.9rem'}}>#{it.HYDRANT_ID}</div>
+                        <div className="card-sub">{it.LOCATION}</div>
                       </div>
-                      <div className="card-sub">{it.LOCATION}</div>
-                    </div>
-                    <div className="card-right">
                       <div className={`status-pill ${it.STATUS ? it.STATUS.toLowerCase() : ''}`}>
-                        <span className={`status-dot ${it.STATUS ? it.STATUS.toLowerCase() : ''}`}></span>
-                        {it.STATUS || '-'}
+                         {it.STATUS || '-'}
                       </div>
-                      <div className="card-date"><Calendar size={12} /> {it.PRESSURE || ''}</div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
 
+              </div>
             </div>
-          </aside>
-        </>
-      )}
-
-      {/* Render individual device pages when selected from overview */}
-      {page === 'streetlight' && <StreetLight selectedId={selectedStreetId ?? undefined} />}
-      {page === 'wifi' && <WifiSpot selectedId={selectedWifiId ?? undefined} />}
-      {page === 'firehydrant' && <FireHydrant selectedId={selectedHydrantId ?? undefined} />}
-
-      {/* ===== หน้า Devices ใหม่ (ใช้ sheet เดียวกัน) ===== */}
-      {page === 'devices' && (
-        <div className="device-page">
-
-          <div className="device-tabs">
-            <button className={deviceTab==='streetlight'?'active':''}
-              onClick={()=>setDeviceTab('streetlight')}>
-              ไฟส่องสว่าง
-            </button>
-
-            <button className={deviceTab==='wifi'?'active':''}
-              onClick={()=>setDeviceTab('wifi')}>
-              ไวไฟ
-            </button>
-
-            <button className={deviceTab==='hydrant'?'active':''}
-              onClick={()=>setDeviceTab('hydrant')}>
-              ประปา
-            </button>
           </div>
+        )}
 
-          <div className="device-content">
-            {deviceTab==='streetlight' && <StreetLight selectedId={selectedStreetId ?? undefined} />}
-            {deviceTab==='wifi' && <WifiSpot selectedId={selectedWifiId ?? undefined} />}
-            {deviceTab==='hydrant' && <FireHydrant selectedId={selectedHydrantId ?? undefined} />}
+        {/* กรณีหน้า Detail (กดจากการ์ด) */}
+        {page === 'streetlight' && <StreetLight selectedId={selectedStreetId ?? undefined} />}
+        {page === 'wifi' && <WifiSpot selectedId={selectedWifiId ?? undefined} />}
+        {page === 'firehydrant' && <FireHydrant selectedId={selectedHydrantId ?? undefined} />}
+        
+        {/* กรณีหน้า Devices (เมนูซ้าย) */}
+        {page === 'devices' && (
+          <div className="device-page" style={{ padding: '20px', background: 'white', height: '100%', overflowY: 'auto' }}>
+            <div className="device-tabs">
+              <button className={deviceTab==='streetlight'?'active':''} onClick={()=>setDeviceTab('streetlight')}>ไฟส่องสว่าง</button>
+              <button className={deviceTab==='wifi'?'active':''} onClick={()=>setDeviceTab('wifi')}>ไวไฟ</button>
+              <button className={deviceTab==='hydrant'?'active':''} onClick={()=>setDeviceTab('hydrant')}>ประปา</button>
+            </div>
+            <div className="device-content">
+              {deviceTab==='streetlight' && <StreetLight selectedId={selectedStreetId ?? undefined} />}
+              {deviceTab==='wifi' && <WifiSpot selectedId={selectedWifiId ?? undefined} />}
+              {deviceTab==='hydrant' && <FireHydrant selectedId={selectedHydrantId ?? undefined} />}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
+      </main>
     </div>
   );
 }
