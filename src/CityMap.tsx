@@ -154,6 +154,10 @@ function CityMap({ devices, loading = false }: CityMapProps) {
             <span class="popup-value">${device.name}</span>
           </div>
           <div class="popup-row">
+            <span class="popup-label">ตำแหน่ง:</span>
+            <span class="popup-value">${device.lat.toFixed(6)}, ${device.lng.toFixed(6)}</span>
+          </div>
+          <div class="popup-row">
             <span class="popup-label">สถานะ:</span>
             <span class="popup-value" style="color: ${statusColors[device.status]}; font-weight: 600;">
               ${statusLabels[device.status]}

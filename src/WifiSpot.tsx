@@ -1,7 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Wifi, MapPin, Signal, Users, RefreshCw } from 'lucide-react';
 import Papa from 'papaparse';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import './durablearticles.css'; // ✅ ใช้ CSS ตัวเดียวกับหน้าไฟส่องสว่าง
+
+// แก้ไขปัญหา default icon ของ Leaflet
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 // ✅ ใส่ลิงก์ CSV ของคุณให้แล้วครับ
 const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQv7p9ib0xXet8Alyik_Fi9CdBVvZO8xz73K4k0wEoNqpwIWAKFGIfbk0IkE8knnp-LXvNA6OceINr1/pub?gid=123712203&single=true&output=csv';
@@ -16,6 +26,9 @@ const WifiSpot: React.FC<Props> = ({ selectedId }) => {
     const [points, setPoints] = useState<any[]>(fallbackData);
     const [selected, setSelected] = useState<any>(fallbackData[0]);
     const [loading, setLoading] = useState(false);
+    const mapRef = useRef<L.Map | null>(null);
+    const mapContainerRef = useRef<HTMLDivElement>(null);
+    const markerRef = useRef<L.Marker | null>(null);
 
     const fetchData = () => {
         setLoading(true);
@@ -49,6 +62,78 @@ const WifiSpot: React.FC<Props> = ({ selectedId }) => {
     useEffect(() => {
         fetchData();
     }, []);
+
+    // สร้างและอัปเดตแผนที่เมื่อเลือก WiFi ใหม่
+    useEffect(() => {
+        if (!mapContainerRef.current || !selected) return;
+
+        const lat = selected.LAT ? parseFloat(selected.LAT) : null;
+        const lng = selected.LON || selected.LNG ? parseFloat(selected.LON || selected.LNG) : null;
+
+        if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+            if (mapRef.current) {
+                mapRef.current.remove();
+                mapRef.current = null;
+            }
+            return;
+        }
+
+        if (!mapRef.current) {
+            const map = L.map(mapContainerRef.current).setView([lat, lng], 16);
+            mapRef.current = map;
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+        } else {
+            mapRef.current.setView([lat, lng], 16);
+        }
+
+        if (markerRef.current) {
+            markerRef.current.remove();
+        }
+
+        const customIcon = L.divIcon({
+            className: 'custom-marker',
+            html: `
+                <div class="marker-container" style="background-color: #10b981">
+                    <span class="marker-icon">📶</span>
+                </div>
+            `,
+            iconSize: [40, 40],
+            iconAnchor: [20, 40],
+            popupAnchor: [0, -40]
+        });
+
+        const marker = L.marker([lat, lng], { icon: customIcon }).addTo(mapRef.current);
+        markerRef.current = marker;
+
+        const popupContent = `
+            <div style="padding: 8px;">
+                <h4 style="margin: 0 0 8px 0; font-size: 1rem; font-weight: 600;">
+                    📶 ${selected.WIFI_ID || '-'}
+                </h4>
+                <p style="margin: 4px 0; font-size: 0.875rem;">
+                    <strong>สถานที่:</strong> ${selected.LOCATION || '-'}
+                </p>
+                <p style="margin: 4px 0; font-size: 0.875rem;">
+                    <strong>พิกัด:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}
+                </p>
+                <p style="margin: 4px 0; font-size: 0.875rem;">
+                    <strong>สถานะ:</strong> ${selected.STATUS || '-'}
+                </p>
+            </div>
+        `;
+        marker.bindPopup(popupContent);
+
+        return () => {
+            if (mapRef.current) {
+                mapRef.current.remove();
+                mapRef.current = null;
+            }
+        };
+    }, [selected]);
 
     const getStatusClass = (status: string) => {
         if (!status) return '';
@@ -113,14 +198,7 @@ const WifiSpot: React.FC<Props> = ({ selectedId }) => {
                         <h3>รายละเอียด</h3>
                     </div>
                     <div className="sl-scrollable-content">
-                        <div className="sl-map-area">
-                            <div className="sl-map-bg"></div>
-                            <div className="sl-pin-container">
-                                <div className="sl-pin" style={{ backgroundColor: '#3b82f6' }}>
-                                    <Wifi size={24} color="white" />
-                                </div>
-                                <div className="sl-pin-label">{selected?.WIFI_ID || '-'}</div>
-                            </div>
+                        <div className="sl-map-area" ref={mapContainerRef} style={{ height: '300px', width: '100%', position: 'relative', borderRadius: '8px', overflow: 'hidden' }}>
                         </div>
                         <div className="sl-detail-box">
                             <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '24px' }}>
@@ -146,7 +224,33 @@ const WifiSpot: React.FC<Props> = ({ selectedId }) => {
                     </div>
                 </div>
             </div>
-            <style>{`.spin-anim { animation: spin 1s linear infinite; } @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+            <style>{`
+                .spin-anim { animation: spin 1s linear infinite; } 
+                @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                
+                /* Custom Marker Styles */
+                .custom-marker {
+                    background: transparent;
+                    border: none;
+                }
+                
+                .marker-container {
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50% 50% 50% 0;
+                    transform: rotate(-45deg);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+                    border: 3px solid white;
+                }
+                
+                .marker-icon {
+                    transform: rotate(45deg);
+                    font-size: 20px;
+                }
+            `}</style>
         </div>
     );
 };

@@ -67,39 +67,18 @@ function App() {
 
   useEffect(() => { fetchSheets(); }, []);
 
-  // ===== สุ่มพิกัดรอบๆ พลูตาหลวง =====
-  const generateRandomCoords = (centerLat: number, centerLng: number, radiusKm: number = 2) => {
-    // สุ่มพิกัดในรัศมี radiusKm กิโลเมตร
-    const radiusInDegrees = radiusKm / 111; // 1 degree ≈ 111 km
-    const u = Math.random();
-    const v = Math.random();
-    const w = radiusInDegrees * Math.sqrt(u);
-    const t = 2 * Math.PI * v;
-    const x = w * Math.cos(t);
-    const y = w * Math.sin(t);
-    
-    return {
-      lat: centerLat + y,
-      lng: centerLng + x / Math.cos(centerLat * Math.PI / 180)
-    };
-  };
-
   // ===== แปลงข้อมูลสำหรับแผนที่ =====
   const getMapDevices = () => {
     const devices: any[] = [];
-    const CENTER_LAT = 12.7011; // พลูตาหลวง
-    const CENTER_LNG = 100.9674;
 
     // แปลงไฟส่องสว่าง
     streetLights.forEach((item) => {
       let lat = item.LAT ? parseFloat(item.LAT) : null;
-      let lng = item.LNG ? parseFloat(item.LNG) : null;
+      let lng = (item.LNG || item.LON) ? parseFloat(item.LNG || item.LON) : null;
       
-      // ถ้าไม่มีพิกัด ให้สุ่มพิกัดรอบๆ พลูตาหลวง
+      // ข้ามรายการที่ไม่มีพิกัด
       if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
-        const coords = generateRandomCoords(CENTER_LAT, CENTER_LNG, 1.5);
-        lat = coords.lat;
-        lng = coords.lng;
+        return;
       }
       
       devices.push({
@@ -118,13 +97,11 @@ function App() {
     // แปลงไวไฟ
     wifiSpots.forEach((item) => {
       let lat = item.LAT ? parseFloat(item.LAT) : null;
-      let lng = item.LNG ? parseFloat(item.LNG) : null;
+      let lng = (item.LNG || item.LON) ? parseFloat(item.LNG || item.LON) : null;
       
-      // ถ้าไม่มีพิกัด ให้สุ่มพิกัดรอบๆ พลูตาหลวง
+      // ข้ามรายการที่ไม่มีพิกัด
       if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
-        const coords = generateRandomCoords(CENTER_LAT, CENTER_LNG, 2);
-        lat = coords.lat;
-        lng = coords.lng;
+        return;
       }
       
       devices.push({
@@ -143,13 +120,11 @@ function App() {
     // แปลงหัวดับเพลิง/ประปา
     hydrants.forEach((item) => {
       let lat = item.LAT ? parseFloat(item.LAT) : null;
-      let lng = item.LNG ? parseFloat(item.LNG) : null;
+      let lng = (item.LNG || item.LON) ? parseFloat(item.LNG || item.LON) : null;
       
-      // ถ้าไม่มีพิกัด ให้สุ่มพิกัดรอบๆ พลูตาหลวง
+      // ข้ามรายการที่ไม่มีพิกัด
       if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
-        const coords = generateRandomCoords(CENTER_LAT, CENTER_LNG, 2);
-        lat = coords.lat;
-        lng = coords.lng;
+        return;
       }
       
       devices.push({
@@ -219,6 +194,18 @@ function App() {
             </div>
 
             <div className="sidebar-content">
+              {/* สถิติอุปกรณ์บนแผนที่ */}
+              <div className="list-block" style={{background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', borderRadius: '8px', padding: '16px', marginBottom: '16px'}}>
+                <h3 style={{color: 'white', marginBottom: '12px'}}>📍 แผนที่ดิจิทัล</h3>
+                <div style={{fontSize: '0.9rem', opacity: 0.95}}>
+                  <p style={{margin: '4px 0'}}>แสดงอุปกรณ์: <strong>{getMapDevices().length}</strong> รายการ</p>
+                  <p style={{margin: '4px 0', fontSize: '0.85rem', opacity: 0.85}}>
+                    💡 ไฟ: {getMapDevices().filter(d => d.type === 'streetlight').length} | 
+                    📶 WiFi: {getMapDevices().filter(d => d.type === 'wifi').length} | 
+                    🚒 ประปา: {getMapDevices().filter(d => d.type === 'hydrant').length}
+                  </p>
+                </div>
+              </div>
 
               <div className="list-block">
                 <h3>ไฟ ({streetLights.length})</h3>

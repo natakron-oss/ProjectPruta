@@ -1,7 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Lightbulb, MapPin, Calendar, RefreshCw, Box, User, Zap, Image as ImageIcon } from 'lucide-react';
 import Papa from 'papaparse';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import './durablearticles.css'; // ใช้ CSS กลาง
+
+// แก้ไขปัญหา default icon ของ Leaflet
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 // 🛑 อย่าลืมเปลี่ยน Link CSV ใหม่ที่คุณเพิ่งทำเสร็จตรงนี้นะครับ
 const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQv7p9ib0xXet8Alyik_Fi9CdBVvZO8xz73K4k0wEoNqpwIWAKFGIfbk0IkE8knnp-LXvNA6OceINr1/pub?gid=0&single=true&output=csv';
@@ -29,6 +39,9 @@ const StreetLight: React.FC<Props> = ({ selectedId }) => {
   const [lights, setLights] = useState<any[]>(fallbackData);
   const [selected, setSelected] = useState<any>(fallbackData[0]);
   const [loading, setLoading] = useState(false);
+  const mapRef = useRef<L.Map | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const markerRef = useRef<L.Marker | null>(null);
 
   const fetchData = () => {
     setLoading(true);
@@ -57,6 +70,86 @@ const StreetLight: React.FC<Props> = ({ selectedId }) => {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  // สร้างและอัปเดตแผนที่เมื่อเลือกไฟส่องสว่างใหม่
+  useEffect(() => {
+    if (!mapContainerRef.current || !selected) return;
+
+    const lat = selected.LAT ? parseFloat(selected.LAT) : null;
+    const lng = selected.LON || selected.LNG ? parseFloat(selected.LON || selected.LNG) : null;
+
+    // ถ้าไม่มีพิกัดที่ถูกต้อง ไม่ต้องแสดงแผนที่
+    if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+      return;
+    }
+
+    // สร้างแผนที่ใหม่ ถ้ายังไม่มี
+    if (!mapRef.current) {
+      const map = L.map(mapContainerRef.current).setView([lat, lng], 16);
+      mapRef.current = map;
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(map);
+    } else {
+      // อัปเดตตำแหน่งแผนที่
+      mapRef.current.setView([lat, lng], 16);
+    }
+
+    // ลบ marker เดิม
+    if (markerRef.current) {
+      markerRef.current.remove();
+    }
+
+    // สร้าง custom icon สำหรับไฟส่องสว่าง
+    const customIcon = L.divIcon({
+      className: 'custom-marker',
+      html: `
+        <div class="marker-container" style="background-color: #f59e0b">
+          <span class="marker-icon">💡</span>
+        </div>
+      `,
+      iconSize: [40, 40],
+      iconAnchor: [20, 40],
+      popupAnchor: [0, -40]
+    });
+
+    // เพิ่ม marker ใหม่
+    const marker = L.marker([lat, lng], { icon: customIcon }).addTo(mapRef.current);
+    markerRef.current = marker;
+
+    // เพิ่ม popup
+    const popupContent = `
+      <div style="padding: 8px;">
+        <h4 style="margin: 0 0 8px 0; font-size: 1rem; font-weight: 600;">
+          💡 ${selected.ASSET_ID || '-'}
+        </h4>
+        <p style="margin: 4px 0; font-size: 0.875rem;">
+          <strong>สถานที่:</strong> ${selected.LOCATION || '-'}
+        </p>
+        <p style="margin: 4px 0; font-size: 0.875rem;">
+          <strong>พิกัด:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}
+        </p>
+        <p style="margin: 4px 0; font-size: 0.875rem;">
+          <strong>สถานะ:</strong> ${selected.STATUS || '-'}
+        </p>
+      </div>
+    `;
+    marker.bindPopup(popupContent);
+
+    // Cleanup เมื่อ component ถูก unmount
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [selected]);
 
   const getStatusClass = (status: string) => {
     if (!status) return '';
@@ -129,12 +222,7 @@ const StreetLight: React.FC<Props> = ({ selectedId }) => {
           </div>
 
           <div className="sl-scrollable-content">
-            <div className="sl-map-area">
-                <div className="sl-map-bg"></div>
-                <div className="sl-pin-container">
-                    <div className="sl-pin"><Lightbulb size={24} color="white" /></div>
-                    <div className="sl-pin-label">{selected?.ASSET_ID || '-'}</div>
-                </div>
+            <div className="sl-map-area" ref={mapContainerRef} style={{ height: '300px', width: '100%', position: 'relative', borderRadius: '8px', overflow: 'hidden' }}>
             </div>
 
             <div className="sl-detail-box">
@@ -194,6 +282,29 @@ const StreetLight: React.FC<Props> = ({ selectedId }) => {
         .flex { display: flex; }
         .items-center { align-items: center; }
         .gap-2 { gap: 8px; }
+        
+        /* Custom Marker Styles */
+        .custom-marker {
+          background: transparent;
+          border: none;
+        }
+        
+        .marker-container {
+          width: 40px;
+          height: 40px;
+          border-radius: 50% 50% 50% 0;
+          transform: rotate(-45deg);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+          border: 3px solid white;
+        }
+        
+        .marker-icon {
+          transform: rotate(45deg);
+          font-size: 20px;
+        }
       `}</style>
     </div>
   );
