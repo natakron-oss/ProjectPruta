@@ -22,7 +22,7 @@ function App() {
   const [streetLights, setStreetLights] = useState<any[]>([]);
   const [wifiSpots, setWifiSpots] = useState<any[]>([]);
   const [hydrants, setHydrants] = useState<any[]>([]);
-  const [loadingSheets, setLoadingSheets] = useState(false);
+  const [loadingSheets, setLoadingนSheets] = useState(false);
   
   // Selection States
   const [selectedStreetId, setSelectedStreetId] = useState<string | null>(null);
@@ -36,11 +36,11 @@ function App() {
 
   // ===== 4. Fetch Data =====
   const fetchSheets = () => {
-    setLoadingSheets(true);
+    setLoadingนSheets(true);
     Papa.parse(SHEET_STREETLIGHT, { download: true, header: true, complete: (res: any) => { setStreetLights((res.data || []).filter((r: any) => r.ASSET_ID)); } });
     Papa.parse(SHEET_WIFI, { download: true, header: true, complete: (res: any) => { setWifiSpots((res.data || []).filter((r: any) => r.WIFI_ID)); } });
     Papa.parse(SHEET_HYDRANT, { download: true, header: true, complete: (res: any) => { setHydrants((res.data || []).filter((r: any) => r.HYDRANT_ID)); } });
-    setTimeout(() => setLoadingSheets(false), 800);
+    setTimeout(() => setLoadingนSheets(false), 800);
   };
   useEffect(() => { fetchSheets(); }, []);
 
@@ -83,38 +83,79 @@ function App() {
     document.body.style.userSelect = 'none';
   };
 
-  // ===== 6. Helper: สร้างพิกัดสุ่ม =====
-  const generateRandomCoords = (centerLat: number, centerLng: number, radiusKm: number = 2) => {
-    const radiusInDegrees = radiusKm / 111;
-    const u = Math.random(); const v = Math.random();
-    const w = radiusInDegrees * Math.sqrt(u); const t = 2 * Math.PI * v;
-    const x = w * Math.cos(t); const y = w * Math.sin(t);
-    return { lat: centerLat + y, lng: centerLng + x / Math.cos(centerLat * Math.PI / 180) };
-  };
-
-  // ===== 7. useMemo: ล็อคข้อมูลแผนที่ =====
+  // ===== 6. useMemo: สร้างข้อมูลแผนที่จากพิกัดจริง =====
   const mapDevices = useMemo(() => {
     const devices: any[] = [];
-    const CENTER_LAT = 12.7011; const CENTER_LNG = 100.9674;
 
     streetLights.forEach((item) => {
-      let lat = parseFloat(item.LAT); let lng = parseFloat(item.LNG);
-      if (!lat || !lng || isNaN(lat)) { const c = generateRandomCoords(CENTER_LAT, CENTER_LNG, 1.5); lat = c.lat; lng = c.lng; }
-      devices.push({ id: item.ASSET_ID, name: item.LOCATION || `โคมไฟ`, type: 'streetlight', lat, lng, status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing', department: 'เทศบาลตำบลพลูตาหลวง', description: item.LAMP_TYPE || '' });
+      let lat = parseFloat(item.LAT);
+      let lng = parseFloat(item.LNG || item.LON); // รองรับทั้ง LNG และ LON
+      
+      console.log('StreetLight:', item.ASSET_ID, 'LAT:', item.LAT, 'LNG/LON:', item.LNG || item.LON, 'Parsed:', lat, lng);
+      
+      // ข้ามรายการที่ไม่มีพิกัดหรือพิกัดไม่ถูกต้อง
+      if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+        console.log('  ⚠️ ข้ามเพราะไม่มีพิกัด');
+        return;
+      }
+      
+      devices.push({ 
+        id: item.ASSET_ID, 
+        name: item.LOCATION || `โคมไฟ ${item.ASSET_ID}`, 
+        type: 'streetlight', 
+        lat, 
+        lng, 
+        status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing', 
+        department: 'เทศบาลตำบลพลูตาหลวง', 
+        description: item.LAMP_TYPE || '' 
+      });
     });
 
     wifiSpots.forEach((item) => {
-      let lat = parseFloat(item.LAT); let lng = parseFloat(item.LNG);
-      if (!lat || !lng || isNaN(lat)) { const c = generateRandomCoords(CENTER_LAT, CENTER_LNG, 2); lat = c.lat; lng = c.lng; }
-      devices.push({ id: item.WIFI_ID, name: item.LOCATION || `WiFi`, type: 'wifi', lat, lng, status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing', department: 'เทศบาลตำบลพลูตาหลวง', description: item.ISP || '' });
+      let lat = parseFloat(item.LAT);
+      let lng = parseFloat(item.LNG || item.LON); // รองรับทั้ง LNG และ LON
+      
+      // ข้ามรายการที่ไม่มีพิกัดหรือพิกัดไม่ถูกต้อง
+      if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+        return;
+      }
+      
+      devices.push({ 
+        id: item.WIFI_ID, 
+        name: item.LOCATION || `WiFi ${item.WIFI_ID}`, 
+        type: 'wifi', 
+        lat, 
+        lng, 
+        status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing', 
+        department: 'เทศบาลตำบลพลูตาหลวง', 
+        description: item.ISP || '' 
+      });
     });
 
     hydrants.forEach((item) => {
-      let lat = parseFloat(item.LAT); let lng = parseFloat(item.LNG);
-      if (!lat || !lng || isNaN(lat)) { const c = generateRandomCoords(CENTER_LAT, CENTER_LNG, 2); lat = c.lat; lng = c.lng; }
-      devices.push({ id: item.HYDRANT_ID, name: item.LOCATION || `ประปา`, type: 'hydrant', lat, lng, status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing', department: 'เทศบาลตำบลพลูตาหลวง', description: item.PRESSURE || '' });
+      let lat = parseFloat(item.LAT);
+      let lng = parseFloat(item.LNG || item.LON); // รองรับทั้ง LNG และ LON
+      
+      // ข้ามรายการที่ไม่มีพิกัดหรือพิกัดไม่ถูกต้อง
+      if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+        return;
+      }
+      
+      devices.push({ 
+        id: item.HYDRANT_ID, 
+        name: item.LOCATION || `ประปา ${item.HYDRANT_ID}`, 
+        type: 'hydrant', 
+        lat, 
+        lng, 
+        status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing', 
+        department: 'เทศบาลตำบลพลูตาหลวง', 
+        description: item.PRESSURE || '' 
+      });
     });
 
+    console.log('🗺️ Total devices for map:', devices.length);
+    devices.forEach(d => console.log('  -', d.type, d.id, d.lat, d.lng));
+    
     return devices;
   }, [streetLights, wifiSpots, hydrants]); 
 
