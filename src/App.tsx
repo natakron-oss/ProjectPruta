@@ -56,6 +56,15 @@ function App() {
   const mapDevices = useMemo(() => {
     const devices: any[] = [];
 
+    
+    const parseRangeMeters = (row: any): number | undefined => {
+      const raw = row?.RANGE ?? row?.range ?? row?.Range;
+      if (raw === undefined || raw === null || raw === '') return 0;
+      const meters = typeof raw === 'number' ? raw : parseFloat(String(raw));
+      if (!Number.isFinite(meters) || meters <= 0) return 0;
+      return meters;
+    };
+
     // --- ไฟส่องสว่าง ---
     streetLights.forEach((item) => {
       let lat = parseFloat(item.LAT); 
@@ -64,7 +73,7 @@ function App() {
       // ถ้าไม่มีพิกัด ให้ข้ามไปเลย (ไม่สุ่มแล้ว)
       if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
 
-      devices.push({ id: item.ASSET_ID, name: item.LOCATION || `โคมไฟ`, type: 'streetlight', lat, lng, status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing', department: 'เทศบาลตำบลพลูตาหลวง', description: item.LAMP_TYPE || '' });
+      devices.push({ id: item.ASSET_ID, name: item.LOCATION || `โคมไฟ`, type: 'streetlight', lat, lng, status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing', department: 'เทศบาลตำบลพลูตาหลวง', description: item.LAMP_TYPE || '', rangeMeters: parseRangeMeters(item) });
     });
 
     // --- WiFi ---
@@ -74,7 +83,7 @@ function App() {
       
       if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
 
-      devices.push({ id: item.WIFI_ID, name: item.LOCATION || `WiFi`, type: 'wifi', lat, lng, status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing', department: 'เทศบาลตำบลพลูตาหลวง', description: item.ISP || '' });
+      devices.push({ id: item.WIFI_ID, name: item.LOCATION || `WiFi`, type: 'wifi', lat, lng, status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing', department: 'เทศบาลตำบลพลูตาหลวง', description: item.ISP || '', rangeMeters: parseRangeMeters(item) });
     });
 
     // --- ประปา ---
@@ -84,7 +93,7 @@ function App() {
       
       if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
 
-      devices.push({ id: item.HYDRANT_ID, name: item.LOCATION || `ประปา`, type: 'hydrant', lat, lng, status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing', department: 'เทศบาลตำบลพลูตาหลวง', description: item.PRESSURE || '' });
+      devices.push({ id: item.HYDRANT_ID, name: item.LOCATION || `ประปา`, type: 'hydrant', lat, lng, status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing', department: 'เทศบาลตำบลพลูตาหลวง', description: item.PRESSURE || '', rangeMeters: parseRangeMeters(item) });
     });
 
     // --- เพิ่มตำแหน่งใหม่ที่สร้างเอง ---
@@ -152,12 +161,14 @@ function App() {
             
             {/* A. แผนที่ */}
             <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}>
-              <CityMap 
-                devices={mapDevices} 
-                loading={loadingSheets} 
-                onAddPosition={handleAddPosition}
+              <CityMap
+                devices={mapDevices}
+                loading={loadingSheets}
+                showRanges
                 addMode={addMode}
+                onAddPosition={handleAddPosition}
               />
+
               
               {/* ปุ่มเพิ่มตำแหน่ง */}
               <button

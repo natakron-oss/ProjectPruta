@@ -1,8 +1,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { CityDevice } from './mockData';
-import { Plus } from 'lucide-react';
+// import { CityDevice } from './mockData';
 import './CityMap.css';
 
 // แก้ไขปัญหา default icon ของ Leaflet
@@ -18,6 +17,22 @@ interface CityMapProps {
   loading?: boolean;
   onAddPosition?: (lat: number, lng: number) => void;
   addMode?: boolean;
+  showRanges?: boolean;
+}
+
+type DeviceStatus = 'normal' | 'damaged' | 'repairing';
+
+export interface CityDevice {
+  id: string;
+  name: string;
+  type: string;
+  lat: number;
+  lng: number;
+  status: DeviceStatus;
+  department: string;
+  description?: string;
+  /** ระยะครอบคลุมของอุปกรณ์ (เมตร) ถ้ามีจะ override ค่า default ตาม type */
+  rangeMeters?: number;
 }
 
 // กำหนดสีและไอคอนสำหรับแต่ละประเภทอุปกรณ์
@@ -62,10 +77,45 @@ const statusColors = {
   repairing: '#f59e0b'
 };
 
-function CityMap({ devices, loading = false, onAddPosition, addMode = false }: CityMapProps) {
+function CityMap({ devices, loading = false, onAddPosition, addMode = false, showRanges = true }: CityMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const tempMarkerRef = useRef<L.Marker | null>(null);
+
+    const getDeviceRangeMeters = (device: CityDevice): number => {
+    if (typeof device.rangeMeters === 'number' && Number.isFinite(device.rangeMeters) && device.rangeMeters >= 0) {
+      return device.rangeMeters;
+    }
+
+    // ถ้าไม่มี RANGE ให้เป็น 0 ทุกอุปกรณ์
+    return 0;
+  };
+
+  const addDeviceRangeHeat = (layer: L.LayerGroup, device: CityDevice) => {
+    const deviceInfo = deviceIcons[device.type];
+    if (!deviceInfo) return;
+
+    const baseRadius = getDeviceRangeMeters(device);
+    if (baseRadius <= 0) return;
+    const color = deviceInfo.color;
+
+    // ทำเป็นวงกลมซ้อนหลายชั้นให้ดูเหมือน heat/gradient (Leaflet ไม่มี radial gradient fill โดยตรง)
+    const rings: Array<{ radius: number; opacity: number }> = [
+      { radius: baseRadius, opacity: 0.10 },
+      { radius: baseRadius * 0.66, opacity: 0.14 },
+      { radius: baseRadius * 0.33, opacity: 0.22 },
+    ];
+
+    rings.forEach((ring) => {
+      L.circle([device.lat, device.lng], {
+        radius: ring.radius,
+        stroke: false,
+        fillColor: color,
+        fillOpacity: ring.opacity,
+        interactive: false,
+      }).addTo(layer);
+    });
+  };
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -103,6 +153,9 @@ function CityMap({ devices, loading = false, onAddPosition, addMode = false }: C
       maxZoom: 19
     }).addTo(map);
 
+      // เพิ่มวงกลมแสดงระยะ (ด้านหลัง marker)
+    const rangeLayer = L.layerGroup().addTo(map);
+
     // เพิ่มการคลิกบนแผนที่เพื่อเพิ่มตำแหน่งใหม่
     if (addMode && onAddPosition) {
       map.on('click', (e: L.LeafletMouseEvent) => {
@@ -135,6 +188,9 @@ function CityMap({ devices, loading = false, onAddPosition, addMode = false }: C
     // เพิ่ม markers สำหรับแต่ละอุปกรณ์
     if (devices.length > 0) {
       devices.forEach((device: CityDevice) => {
+        if (showRanges) {
+          addDeviceRangeHeat(rangeLayer, device);
+        }
         addDeviceMarker(map, device);
       });
     }
