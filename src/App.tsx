@@ -2,13 +2,14 @@ import { useState, useEffect, useMemo } from 'react';
 // @ts-ignore
 import Papa from 'papaparse';
 import './App.css';
-import { Home, MapPin, List, ChevronUp, ChevronDown } from 'lucide-react'; 
+import { Home, MapPin, List, ChevronUp, ChevronDown, Plus } from 'lucide-react'; 
 
 // --- Import Components ---
 import StreetLight from './StreetLight';
 import WifiSpot from './WifiSpot';
 import FireHydrant from './FireHydrant';
 import CityMap from './CityMap';
+import AddPositionModal, { NewPositionData } from './AddPositionModal';
 // import Complaint from './Complaint'; 
 
 function App() {
@@ -17,6 +18,13 @@ function App() {
 
   // ===== 1. Toggle Panel (เปิด/ปิด) =====
   const [isPanelOpen, setIsPanelOpen] = useState(false); 
+
+  // ===== Add Position States =====
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addMode, setAddMode] = useState(false);
+  const [tempLat, setTempLat] = useState(0);
+  const [tempLng, setTempLng] = useState(0);
+  const [newPositions, setNewPositions] = useState<any[]>([]); 
 
   // ===== 2. Data States =====
   const [streetLights, setStreetLights] = useState<any[]>([]);
@@ -79,8 +87,44 @@ function App() {
       devices.push({ id: item.HYDRANT_ID, name: item.LOCATION || `ประปา`, type: 'hydrant', lat, lng, status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing', department: 'เทศบาลตำบลพลูตาหลวง', description: item.PRESSURE || '' });
     });
 
+    // --- เพิ่มตำแหน่งใหม่ที่สร้างเอง ---
+    newPositions.forEach((item) => {
+      devices.push(item);
+    });
+
     return devices;
-  }, [streetLights, wifiSpots, hydrants]); 
+  }, [streetLights, wifiSpots, hydrants, newPositions, newPositions]); 
+
+  // ===== Handle Add Position =====
+  const handleAddPosition = (lat: number, lng: number) => {
+    setTempLat(lat);
+    setTempLng(lng);
+    setIsAddModalOpen(true);
+  };
+
+  const handleSavePosition = (data: NewPositionData) => {
+    const newDevice = {
+      id: `NEW-${Date.now()}`,
+      name: data.name,
+      type: data.type,
+      lat: data.lat,
+      lng: data.lng,
+      status: data.status,
+      department: 'เทศบาลตำบลพลูตาหลวง',
+      description: data.description
+    };
+    
+    setNewPositions([...newPositions, newDevice]);
+    setAddMode(false);
+    alert('เพิ่มตำแหน่งใหม่สำเร็จ!');
+  };
+
+  const toggleAddMode = () => {
+    setAddMode(!addMode);
+    if (!addMode) {
+      alert('คลิกบนแผนที่เพื่อเลือกตำแหน่งที่ต้องการเพิ่ม');
+    }
+  }; 
 
   // if (page === 'complaint') return <Complaint onBack={() => setPage('overview')} />;
 
@@ -108,7 +152,47 @@ function App() {
             
             {/* A. แผนที่ */}
             <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}>
-              <CityMap devices={mapDevices} loading={loadingSheets} />
+              <CityMap 
+                devices={mapDevices} 
+                loading={loadingSheets} 
+                onAddPosition={handleAddPosition}
+                addMode={addMode}
+              />
+              
+              {/* ปุ่มเพิ่มตำแหน่ง */}
+              <button
+                onClick={toggleAddMode}
+                style={{
+                  position: 'absolute',
+                  top: '20px',
+                  right: '20px',
+                  zIndex: 1000,
+                  backgroundColor: addMode ? '#ef4444' : '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '12px 20px',
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                }}
+              >
+                <Plus size={20} />
+                {addMode ? 'ยกเลิก' : 'เพิ่มตำแหน่ง'}
+              </button>
             </div>
 
             {/* B. Slide Panel (Click to Toggle) */}
@@ -244,8 +328,18 @@ function App() {
           </div>
         )}
 
-      </main>
-    </div>
+      </main>      
+      {/* Add Position Modal */}
+      <AddPositionModal
+        isOpen={isAddModalOpen}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setAddMode(false);
+        }}
+        onSave={handleSavePosition}
+        initialLat={tempLat}
+        initialLng={tempLng}
+      />    </div>
   );
 }
 

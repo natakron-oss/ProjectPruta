@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { CityDevice } from './mockData';
+import { Plus } from 'lucide-react';
 import './CityMap.css';
 
 // แก้ไขปัญหา default icon ของ Leaflet
@@ -15,6 +16,8 @@ L.Icon.Default.mergeOptions({
 interface CityMapProps {
   devices: CityDevice[];
   loading?: boolean;
+  onAddPosition?: (lat: number, lng: number) => void;
+  addMode?: boolean;
 }
 
 // กำหนดสีและไอคอนสำหรับแต่ละประเภทอุปกรณ์
@@ -59,9 +62,10 @@ const statusColors = {
   repairing: '#f59e0b'
 };
 
-function CityMap({ devices, loading = false }: CityMapProps) {
+function CityMap({ devices, loading = false, onAddPosition, addMode = false }: CityMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const tempMarkerRef = useRef<L.Marker | null>(null);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -99,6 +103,35 @@ function CityMap({ devices, loading = false }: CityMapProps) {
       maxZoom: 19
     }).addTo(map);
 
+    // เพิ่มการคลิกบนแผนที่เพื่อเพิ่มตำแหน่งใหม่
+    if (addMode && onAddPosition) {
+      map.on('click', (e: L.LeafletMouseEvent) => {
+        const { lat, lng } = e.latlng;
+        
+        // ลบ marker ชั่วคราวเดิม (ถ้ามี)
+        if (tempMarkerRef.current) {
+          tempMarkerRef.current.remove();
+        }
+        
+        // สร้าง marker ชั่วคราว
+        const tempIcon = L.divIcon({
+          className: 'temp-marker',
+          html: `
+            <div class="marker-container temp-marker-icon" style="background-color: #8b5cf6; animation: pulse 1.5s infinite;">
+              <span class="marker-icon">📍</span>
+            </div>
+          `,
+          iconSize: [40, 40],
+          iconAnchor: [20, 40]
+        });
+        
+        tempMarkerRef.current = L.marker([lat, lng], { icon: tempIcon }).addTo(map);
+        tempMarkerRef.current.bindPopup('ตำแหน่งใหม่<br>คลิกปุ่มบันทึกด้านล่าง').openPopup();
+        
+        onAddPosition(lat, lng);
+      });
+    }
+
     // เพิ่ม markers สำหรับแต่ละอุปกรณ์
     if (devices.length > 0) {
       devices.forEach((device: CityDevice) => {
@@ -112,8 +145,11 @@ function CityMap({ devices, loading = false }: CityMapProps) {
         mapRef.current.remove();
         mapRef.current = null;
       }
+      if (tempMarkerRef.current) {
+        tempMarkerRef.current = null;
+      }
     };
-  }, [devices]);
+  }, [devices, addMode, onAddPosition]);
 
   const addDeviceMarker = (map: L.Map, device: CityDevice) => {
     const deviceInfo = deviceIcons[device.type];
@@ -243,7 +279,10 @@ function CityMap({ devices, loading = false }: CityMapProps) {
       
       <div className="map-footer">
         <p>
-          💡 คลิกที่ Marker เพื่อดูรายละเอียดของอุปกรณ์แต่ละตัว
+          {addMode 
+            ? '🖱️ คลิกบนแผนที่เพื่อเลือกตำแหน่งที่ต้องการเพิ่ม' 
+            : '💡 คลิกที่ Marker เพื่อดูรายละเอียดของอุปกรณ์แต่ละตัว'
+          }
         </p>
       </div>
     </div>
