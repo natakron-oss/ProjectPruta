@@ -137,3 +137,19 @@
 .marker-icon { font-size: 1.4rem; }
 
 .map-footer { display: none; } /* ซ่อน footer */
+
+/* Temp Marker Animation */
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+.temp-marker-icon {
+  animation: pulse 1.5s infinite;
+}
