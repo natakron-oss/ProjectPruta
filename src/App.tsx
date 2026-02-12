@@ -2,7 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 // @ts-ignore
 import Papa from 'papaparse';
 import './App.css';
+import './durablearticles.css';
 import { Home, MapPin, List, ChevronUp, ChevronDown, Plus } from 'lucide-react'; 
+import { parseDeviceStatus, getStatusBadgeClass } from './status';
 
 // --- Import Components ---
 import StreetLight from './StreetLight';
@@ -73,7 +75,7 @@ function App() {
       // ถ้าไม่มีพิกัด ให้ข้ามไปเลย (ไม่สุ่มแล้ว)
       if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
 
-      devices.push({ id: item.ASSET_ID, name: item.LOCATION || `โคมไฟ`, type: 'streetlight', lat, lng, status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing', department: 'เทศบาลตำบลพลูตาหลวง', description: item.LAMP_TYPE || '', rangeMeters: parseRangeMeters(item) });
+      devices.push({ id: item.ASSET_ID, name: item.LOCATION || `โคมไฟ`, type: 'streetlight', lat, lng, status: parseDeviceStatus(item.STATUS), department: 'เทศบาลตำบลพลูตาหลวง', description: item.LAMP_TYPE || '', rangeMeters: parseRangeMeters(item) });
     });
 
     // --- WiFi ---
@@ -83,7 +85,7 @@ function App() {
       
       if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
 
-      devices.push({ id: item.WIFI_ID, name: item.LOCATION || `WiFi`, type: 'wifi', lat, lng, status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing', department: 'เทศบาลตำบลพลูตาหลวง', description: item.ISP || '', rangeMeters: parseRangeMeters(item) });
+      devices.push({ id: item.WIFI_ID, name: item.LOCATION || `WiFi`, type: 'wifi', lat, lng, status: parseDeviceStatus(item.STATUS), department: 'เทศบาลตำบลพลูตาหลวง', description: item.ISP || '', rangeMeters: parseRangeMeters(item) });
     });
 
     // --- ประปา ---
@@ -93,7 +95,7 @@ function App() {
       
       if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
 
-      devices.push({ id: item.HYDRANT_ID, name: item.LOCATION || `ประปา`, type: 'hydrant', lat, lng, status: item.STATUS?.toLowerCase() === 'ปกติ' ? 'normal' : item.STATUS?.toLowerCase() === 'ชำรุด' ? 'damaged' : 'repairing', department: 'เทศบาลตำบลพลูตาหลวง', description: item.PRESSURE || '', rangeMeters: parseRangeMeters(item) });
+      devices.push({ id: item.HYDRANT_ID, name: item.LOCATION || `ประปา`, type: 'hydrant', lat, lng, status: parseDeviceStatus(item.STATUS), department: 'เทศบาลตำบลพลูตาหลวง', description: item.PRESSURE || '', rangeMeters: parseRangeMeters(item) });
     });
 
     // --- เพิ่มตำแหน่งใหม่ที่สร้างเอง ---
@@ -274,7 +276,7 @@ function App() {
                         <div style={{fontWeight:600, fontSize:'0.9rem'}}>#{it.ASSET_ID}</div>
                         <div className="card-sub">{it.LOCATION}</div>
                       </div>
-                      <div className={`status-pill ${it.STATUS ? it.STATUS.toLowerCase() : ''}`}>
+                       <div className={`status-pill ${getStatusBadgeClass(it.STATUS)}`}>
                          {it.STATUS || '-'}
                       </div>
                     </div>
@@ -290,7 +292,7 @@ function App() {
                         <div style={{fontWeight:600, fontSize:'0.9rem'}}>#{it.WIFI_ID}</div>
                         <div className="card-sub">{it.LOCATION}</div>
                       </div>
-                      <div className={`status-pill ${it.STATUS ? it.STATUS.toLowerCase() : ''}`}>
+                       <div className={`status-pill ${getStatusBadgeClass(it.STATUS)}`}>
                          {it.STATUS || '-'}
                       </div>
                     </div>
@@ -306,7 +308,7 @@ function App() {
                         <div style={{fontWeight:600, fontSize:'0.9rem'}}>#{it.HYDRANT_ID}</div>
                         <div className="card-sub">{it.LOCATION}</div>
                       </div>
-                      <div className={`status-pill ${it.STATUS ? it.STATUS.toLowerCase() : ''}`}>
+                       <div className={`status-pill ${getStatusBadgeClass(it.STATUS)}`}>
                          {it.STATUS || '-'}
                       </div>
                     </div>

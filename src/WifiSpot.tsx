@@ -4,6 +4,7 @@ import Papa from 'papaparse';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './durablearticles.css'; // ✅ ใช้ CSS ตัวเดียวกับหน้าไฟส่องสว่าง
+import { parseDeviceStatus, statusColors } from './status';
 
 // แก้ไขปัญหา default icon ของ Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -94,10 +95,11 @@ const WifiSpot: React.FC<Props> = ({ selectedId }) => {
             markerRef.current.remove();
         }
 
+        const markerColor = statusColors[parseDeviceStatus(selected.STATUS)];
         const customIcon = L.divIcon({
             className: 'custom-marker',
             html: `
-                <div class="marker-container" style="background-color: #10b981">
+                <div class="marker-container" style="background-color: ${markerColor}">
                     <span class="marker-icon">📶</span>
                 </div>
             `,

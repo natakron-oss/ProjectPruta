@@ -97,6 +97,26 @@
   color: #475569;
 }
 
+/* Legend toggle (เปิด/ปิดการแสดงผล) */
+.legend-toggle {
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.legend-toggle.is-off {
+  opacity: 0.35;
+}
+
+.legend-toggle:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.6);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
 /* ปรับขนาดวงกลมไอคอนใน Legend */
 .legend-marker {
   width: 28px;
