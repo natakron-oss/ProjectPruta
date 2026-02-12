@@ -73,6 +73,8 @@ function CityMap({ devices, loading = false, onAddPosition, addMode = false, sho
   const markerLayerRef = useRef<L.LayerGroup | null>(null);
   const rangeLayerRef = useRef<L.LayerGroup | null>(null);
 
+  const [isTilesLoading, setIsTilesLoading] = useState(true);
+
   const [enabledTypes, setEnabledTypes] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     Object.keys(deviceIcons).forEach((t) => {
@@ -134,10 +136,18 @@ function CityMap({ devices, loading = false, onAddPosition, addMode = false, sho
     const map = L.map(mapContainerRef.current).setView([13.7367, 100.5332], 13);
     mapRef.current = map;
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom: 19,
-    }).addTo(map);
+    });
+
+    // Loading indicator for map tiles
+    setIsTilesLoading(true);
+    tiles.on('loading', () => setIsTilesLoading(true));
+    tiles.on('load', () => setIsTilesLoading(false));
+    tiles.on('tileerror', () => setIsTilesLoading(false));
+
+    tiles.addTo(map);
 
     rangeLayerRef.current = L.layerGroup().addTo(map);
     markerLayerRef.current = L.layerGroup().addTo(map);
@@ -286,23 +296,28 @@ function CityMap({ devices, loading = false, onAddPosition, addMode = false, sho
     });
   };
 
-  if (loading) {
-    return (
-      <div className="city-map-container">
-        <div className="map-header">
-          <h2>🗺️ ผังเมืองดิจิทัลเทศบาล</h2>
-          <p>กำลังโหลดข้อมูล...</p>
-        </div>
-      </div>
-    );
-  }
+  const showLoadingOverlay = loading || isTilesLoading;
+  const loadingMessage = loading ? 'กำลังโหลดข้อมูล...' : 'กำลังโหลดแผนที่...';
 
   return (
     <div className="city-map-container">
       <div className="map-header">
         <h2>🗺️ ผังเมืองดิจิทัลเทศบาล</h2>
-        <p>แผนที่แสดงอุปกรณ์และสิ่งอำนวยความสะดวกต่างๆ ในเขตเทศบาล ({devices.length} รายการ)</p>
+        <p>
+          {loading
+            ? 'กำลังโหลดข้อมูล...'
+            : `แผนที่แสดงอุปกรณ์และสิ่งอำนวยความสะดวกต่างๆ ในเขตเทศบาล (${devices.length} รายการ)`}
+        </p>
       </div>
+
+      {showLoadingOverlay && (
+        <div className="map-loading-overlay" role="status" aria-live="polite">
+          <div className="map-loading-card">
+            <div className="map-loading-spinner" aria-hidden="true" />
+            <div className="map-loading-text">{loadingMessage}</div>
+          </div>
+        </div>
+      )}
       
       <div className="map-legend">
         <h3>สัญลักษณ์</h3>
