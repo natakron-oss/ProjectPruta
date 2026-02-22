@@ -221,3 +221,15 @@
     transform: rotate(360deg);
   }
 }
+/* ลบระยะขอบ (Padding) เริ่มต้นของ Leaflet ให้รูปภาพชิดขอบกล่องพอดี */
+.custom-popup.google-maps-style .leaflet-popup-content-wrapper {
+  padding: 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.custom-popup.google-maps-style .leaflet-popup-content {
+  margin: 0;
+  width: 280px !important;
+  line-height: inherit;
+}

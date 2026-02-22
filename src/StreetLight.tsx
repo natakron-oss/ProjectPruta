@@ -5,6 +5,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './durablearticles.css'; // ใช้ CSS กลาง
 import { parseDeviceStatus, statusColors } from './status';
+import ReportButton from './ReportButton';
 
 // แก้ไขปัญหา default icon ของ Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -273,6 +274,12 @@ const StreetLight: React.FC<Props> = ({ selectedId }) => {
                          <p className="sl-field-value">{selected?.STATUSDATE || '-'}</p>
                     </div>
                 </div>
+                <ReportButton 
+                   deviceId={selected?.WIFI_ID || ''} 
+                   deviceName={selected?.WIFI_NAME || ''}
+                   location={selected?.ADDRESS || ''}
+                   status={selected?.WIFI_STATUS || ''}
+                />
             </div>
           </div>
         </div>

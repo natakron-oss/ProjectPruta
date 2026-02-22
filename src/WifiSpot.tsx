@@ -5,6 +5,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './durablearticles.css'; // ✅ ใช้ CSS ตัวเดียวกับหน้าไฟส่องสว่าง
 import { parseDeviceStatus, statusColors } from './status';
+import ReportButton from './ReportButton';
 
 // แก้ไขปัญหา default icon ของ Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -222,6 +223,12 @@ const WifiSpot: React.FC<Props> = ({ selectedId }) => {
                                     <span className={`sl-status ${getStatusClass(selected?.STATUS)}`}>{selected?.STATUS || '-'}</span>
                                 </div>
                             </div>
+                            <ReportButton 
+                   deviceId={selected?.WIFI_ID || ''} 
+                   deviceName={selected?.WIFI_NAME || ''}
+                   location={selected?.ADDRESS || ''}
+                   status={selected?.WIFI_STATUS || ''}
+                />
                         </div>
                     </div>
                 </div>

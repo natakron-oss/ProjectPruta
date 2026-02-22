@@ -226,15 +226,12 @@ function CityMap({ devices, loading = false, onAddPosition, addMode = false, sho
     }
   }, [visibleDevices, showRanges]);
 
-  const addDeviceMarker = (layer: L.LayerGroup, device: CityDevice) => {
+const addDeviceMarker = (layer: L.LayerGroup, device: CityDevice) => {
     const deviceInfo = deviceIcons[device.type];
-    
-    // ถ้าไม่มี icon สำหรับประเภทนี้ ให้ข้าม
     if (!deviceInfo) return;
     
     const markerColor = statusColors[device.status];
 
-    // สร้าง custom icon ด้วย DivIcon
     const customIcon = L.divIcon({
       className: 'custom-marker',
       html: `
@@ -247,54 +244,86 @@ function CityMap({ devices, loading = false, onAddPosition, addMode = false, sho
       popupAnchor: [0, -40]
     });
 
-    // สร้าง marker
     const marker = L.marker([device.lat, device.lng], { icon: customIcon }).addTo(layer);
 
-    // สร้าง popup content
+
     const popupContent = `
-      <div class="device-popup">
-        <div class="popup-header" style="background-color: ${markerColor}">
-          <span class="popup-icon">${deviceInfo.icon}</span>
-          <span class="popup-type">${deviceInfo.label}</span>
+      <div class="device-popup" style="font-family: 'Prompt', sans-serif;">
+        
+        <div class="popup-cover" style="height: 140px; background-color: #f3f4f6; position: relative; display: flex; justify-content: center; align-items: center;">
+          <span style="font-size: 64px; opacity: 0.2;">${deviceInfo.icon}</span>
+          
+          <div style="position: absolute; top: 12px; left: 12px; background-color: white; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; color: ${statusColors[device.status]}; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 4px;">
+            <div style="width: 8px; height: 8px; border-radius: 50%; background-color: ${statusColors[device.status]};"></div>
+            ${statusLabels[device.status]}
+          </div>
         </div>
-        <div class="popup-body">
-          <div class="popup-row">
-            <span class="popup-label">รหัสอุปกรณ์:</span>
-            <span class="popup-value">${device.id}</span>
-          </div>
-          <div class="popup-row">
-            <span class="popup-label">ชื่อ:</span>
-            <span class="popup-value">${device.name}</span>
-          </div>
-          <div class="popup-row">
-            <span class="popup-label">ตำแหน่ง:</span>
-            <span class="popup-value">${device.lat.toFixed(6)}, ${device.lng.toFixed(6)}</span>
-          </div>
-          <div class="popup-row">
-            <span class="popup-label">สถานะ:</span>
-            <span class="popup-value" style="color: ${statusColors[device.status]}; font-weight: 600;">
-              ${statusLabels[device.status]}
-            </span>
-          </div>
-          <div class="popup-row">
-            <span class="popup-label">หน่วยงาน:</span>
-            <span class="popup-value">${device.department}</span>
-          </div>
-          ${device.description ? `
-            <div class="popup-row">
-              <span class="popup-label">หมายเหตุ:</span>
-              <span class="popup-value">${device.description}</span>
+
+        <div class="popup-details" style="padding: 16px 16px 0 16px;">
+          <h3 style="margin: 0 0 4px 0; font-size: 16px; color: #1f2937; line-height: 1.3;">${device.name}</h3>
+          <p style="margin: 0 0 12px 0; font-size: 13px; color: #6b7280;">${deviceInfo.label} • รหัส: ${device.id}</p>
+
+          <div style="font-size: 13px; line-height: 1.6; color: #4b5563;">
+            <div style="display: flex; gap: 8px;">
+              <span style="font-weight: 600; min-width: 60px;">หน่วยงาน:</span> 
+              <span>${device.department}</span>
             </div>
-          ` : ''}
+            ${device.description ? `
+              <div style="display: flex; gap: 8px; margin-top: 4px;">
+                <span style="font-weight: 600; min-width: 60px;">หมายเหตุ:</span> 
+                <span>${device.description}</span>
+              </div>
+            ` : ''}
+          </div>
         </div>
+        
+        <div class="popup-footer" style="padding: 16px;">
+          <button 
+            class="report-issue-btn" 
+            style="width: 100%; padding: 10px; background-color: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);"
+            onmouseover="this.style.backgroundColor='#dc2626'"
+            onmouseout="this.style.backgroundColor='#ef4444'"
+          >
+            📢 แจ้งซ่อมแซม / ร้องเรียน
+          </button>
+        </div>
+
       </div>
     `;
 
     marker.bindPopup(popupContent, {
-      maxWidth: 300,
-      className: 'custom-popup'
+      maxWidth: 280,
+      className: 'custom-popup google-maps-style'
     });
-  };
+
+    marker.on('popupopen', (e) => {
+      const popupElement = e.popup.getElement();
+      if (popupElement) {
+        const closeBtn = popupElement.querySelector('.leaflet-popup-close-button') as HTMLElement;
+        if (closeBtn) {
+          closeBtn.style.color = '#1f2937';
+          closeBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+          closeBtn.style.borderRadius = '50%';
+          closeBtn.style.width = '26px';
+          closeBtn.style.height = '26px';
+          closeBtn.style.display = 'flex';
+          closeBtn.style.alignItems = 'center';
+          closeBtn.style.justifyContent = 'center';
+          closeBtn.style.top = '10px';
+          closeBtn.style.right = '10px';
+          closeBtn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+        }
+
+        const reportBtn = popupElement.querySelector('.report-issue-btn');
+        if (reportBtn) {
+          reportBtn.addEventListener('click', () => {
+            alert(`เตรียมส่งข้อมูลไปหน้าแจ้งซ่อม!\n\nรหัสอุปกรณ์: ${device.id}\nชื่อ: ${device.name}\nสถานะ: ${statusLabels[device.status]}`);
+            marker.closePopup();
+          });
+        }
+      }
+    });
+};
 
   const showLoadingOverlay = loading || isTilesLoading;
   const loadingMessage = loading ? 'กำลังโหลดข้อมูล...' : 'กำลังโหลดแผนที่...';
